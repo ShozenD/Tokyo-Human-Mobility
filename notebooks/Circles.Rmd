@@ -1,0 +1,96 @@
+---
+title: "Circular Visualization"
+author: "Shozen Dan"
+date: "11/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE}
+library(tidyverse)
+library(igraph)
+```
+
+```{r}
+bigrams <- read.csv("../data/bigram.csv", fileEncoding = "utf8")
+bigrams <- bigrams %>% select(bigram, count)
+```
+
+```{r}
+res1 <- map_chr(bigrams$bigram, ~{
+  comma_sep <- str_remove_all(., "[(' )]")
+  str_split(comma_sep, ",")[[1]][1]
+})
+
+res2 <- map_chr(bigrams$bigram, ~{
+  comma_sep <- str_remove_all(., "[(' )]")
+  str_split(comma_sep, ",")[[1]][2]
+})
+
+bigrams$station1 <- res1
+bigrams$station2 <- res2
+
+bigrams <- bigrams %>% 
+  select(station1, station2, count) %>%
+  filter(station1 != station2)
+
+bigrams.subset <- bigrams %>% filter(count > 5)
+```
+
+```{r fig.width=6, fig.height=6}
+set.seed(123)
+colrs <- c("gray70", "gold", "tomato")
+
+graphNetwork <- graph.data.frame(bigrams.subset, directed = T)
+
+E(graphNetwork)$color <- adjustcolor("DarkGray", alpha.f = .5)
+
+E(graphNetwork)$width <- scales::rescale(E(graphNetwork)$count, to = c(1, 10))
+
+E(graphNetwork)$curved <- 0.15
+
+thresh <- quantile(degree(graphNetwork), probs = c(0.68, 0.95, 0.99))
+colr.vec <- map_chr(degree(graphNetwork), ~{
+  if (. < thresh[1]) {
+    colrs[1]
+  } else if (. < thresh[2]) {
+    colrs[2]
+  } else {
+    colrs[3]
+  }
+})
+
+V(graphNetwork)$color <- colr.vec
+
+V(graphNetwork)$size <- scales::rescale(log(degree(graphNetwork)), to = c(5, 13))
+
+edge.start <- ends(graphNetwork, es=E(graphNetwork), names=F)[,1]
+edge.col <- V(graphNetwork)$color[edge.start]
+
+# Define the frame and spacing for the plot
+par(mai=c(0,0,1,0))
+
+plot(
+  graphNetwork, family="HiraKakuProN-W3",
+  layout = layout.fruchterman.reingold,
+  edge.arrow.size = .4,
+  edge.color=edge.col,
+  vertex.label.color = 'black',
+  vertex.frame.color = adjustcolor("darkgray", alpha.f = .5),
+  vertex.label.cex = 0.7,
+)
+```
+```{r}
+bigrams.subset
+```
+```{r}
+graph <- graph.data.frame(bigrams.subset, directed = F)
+graph <- simplify(graph)
+```
+
+
+
+
