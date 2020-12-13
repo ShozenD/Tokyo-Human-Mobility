@@ -15,29 +15,55 @@ library(igraph)
 ```
 
 ```{r}
-bigrams <- read.csv("../data/bigram.csv", fileEncoding = "utf8")
-bigrams <- bigrams %>% select(bigram, count)
+bigrams1 <- read.csv("../data/bigrams/20190601.csv", fileEncoding = "utf8")
+bigrams2 <- read.csv("../data/bigrams/20190602.csv", fileEncoding = "utf8")
+bigrams3 <- read.csv("../data/bigrams/20190603.csv", fileEncoding = "utf8")
+bigrams4 <- read.csv("../data/bigrams/20190604.csv", fileEncoding = "utf8")
+bigrams5 <- read.csv("../data/bigrams/20190605.csv", fileEncoding = "utf8")
+bigrams6 <- read.csv("../data/bigrams/20190606.csv", fileEncoding = "utf8")
+bigrams7 <- read.csv("../data/bigrams/20190607.csv", fileEncoding = "utf8")
+
+head(bigrams1)
 ```
 
 ```{r}
-res1 <- map_chr(bigrams$bigram, ~{
-  comma_sep <- str_remove_all(., "[(' )]")
-  str_split(comma_sep, ",")[[1]][1]
-})
+unpack <- function(df){
+  res1 <- map_chr(df$bigram, ~{
+    comma_sep <- str_remove_all(., "[(' )]")
+    str_split(comma_sep, ",")[[1]][1]
+  })
 
-res2 <- map_chr(bigrams$bigram, ~{
-  comma_sep <- str_remove_all(., "[(' )]")
-  str_split(comma_sep, ",")[[1]][2]
-})
+  res2 <- map_chr(df$bigram, ~{
+    comma_sep <- str_remove_all(., "[(' )]")
+    str_split(comma_sep, ",")[[1]][2]
+  })
 
-bigrams$station1 <- res1
-bigrams$station2 <- res2
+  df$station1 <- res1
+  df$station2 <- res2
+  
+  df <- df %>% 
+    select(station1, station2, count) %>%
+    filter(station1 != station2)
+  
+  return(df)
+}
 
+bigrams1 <- unpack(bigrams1)
+bigrams2 <- unpack(bigrams2)
+bigrams3 <- unpack(bigrams3)
+bigrams4 <- unpack(bigrams4)
+bigrams5 <- unpack(bigrams5)
+bigrams6 <- unpack(bigrams6)
+bigrams7 <- unpack(bigrams7)
+
+bigrams <- rbind(bigrams1, bigrams2, bigrams3, bigrams4, bigrams5, bigrams6, bigrams7)
 bigrams <- bigrams %>% 
-  select(station1, station2, count) %>%
-  filter(station1 != station2)
+  group_by(station1, station2) %>% 
+  summarise(count = sum(count))
 
-bigrams.subset <- bigrams %>% filter(count > 5)
+bigrams.subset <- bigrams %>% filter(count > 40)
+
+bigrams
 ```
 
 ```{r fig.width=6, fig.height=6}
@@ -86,11 +112,39 @@ plot(
 ```{r}
 bigrams.subset
 ```
-```{r}
-graph <- graph.data.frame(bigrams.subset, directed = F)
-graph <- simplify(graph)
+```{r fig.width=6, fig.height=6}
+G <- graph.data.frame(bigrams.subset, directed=FALSE)
+ceb <- cluster_edge_betweenness(G)
+
+dendPlot(ceb, mode="hclust")
 ```
 
+```{r fig.width=6, fig.height=6}
+# E(G)$color <- adjustcolor("DarkGray", alpha.f = .5)
 
+E(G)$width <- scales::rescale(E(G)$count, to = c(1, 10))
+
+E(G)$curved <- 0.15
+
+V(G)$size <- scales::rescale(log(degree(G)), to = c(5, 11))
+
+plot(
+  ceb, 
+  G,
+  family="HiraKakuProN-W3",
+  # layout = layout.fruchterman.reingold,
+  # edge.arrow.size = .4,
+  edge.color= "darkgray",
+  vertex.label.color = 'black',
+  vertex.frame.color = adjustcolor("darkgray", alpha.f = .5),
+  vertex.label.cex = 0.7,
+)
+```
+
+```{r}
+ceb$membership
+
+V(G)
+```
 
 
